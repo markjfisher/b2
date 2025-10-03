@@ -10,6 +10,7 @@
 #include <shared/debug.h>
 #include <string.h>
 #include "native_ui.h"
+#include "native_ui_gtk.h"
 #include <inttypes.h>
 #include "keys.h"
 #include <math.h>
@@ -69,6 +70,15 @@ class TraceUI : public SettingsUI {
 
     std::shared_ptr<SaveTraceJob> m_save_trace_job;
     std::vector<uint8_t> m_keys;
+    
+    // For async save callback
+    std::shared_ptr<Trace> m_pending_save_trace;
+    
+    // Static callback for async save
+    static void TraceUISaveCallback(const std::string& path);
+    
+    // Static instance for callback access
+    static TraceUI* s_current_instance;
 
     char m_stop_num_cycles_str[100] = {};
     char m_start_instruction_address_str[100] = {};
@@ -205,11 +215,34 @@ class TraceUI::SaveTraceJob : public JobQueue::Job {
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
+// Static instance for callback access
+TraceUI* TraceUI::s_current_instance = nullptr;
+
 TraceUI::TraceUI(BeebWindow *beeb_window)
     : m_beeb_window(beeb_window) {
     this->SetDefaultSize(ImVec2(350, 450));
 
     this->ResetTextBoxes();
+    
+    // Set this as the current instance for callbacks
+    s_current_instance = this;
+}
+
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+
+void TraceUI::TraceUISaveCallback(const std::string& path) {
+    if (s_current_instance) {
+        if (!path.empty()) {
+            if (s_current_instance->m_pending_save_trace) {
+                s_current_instance->StartSaveTraceJob(s_current_instance->m_pending_save_trace, path);
+                s_current_instance->m_pending_save_trace.reset();
+            }
+        }
+        
+        // Resume the emulator regardless of whether the user saved or cancelled
+        s_current_instance->m_beeb_window->ResumeEmulatorAfterDialog();
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -474,16 +507,18 @@ void TraceUI::DoImGui() {
             DoTraceStatsImGui(&stats);
 
             if (ImGui::Button("Save...")) {
-                SaveFileDialog fd(RECENT_PATHS_TRACES);
-
-                fd.AddFilter("Text files", {".txt"});
-                fd.AddAllFilesFilter();
-
-                std::string path;
-                if (fd.Open(&path)) {
-                    fd.AddLastPathToRecentPaths();
-                    this->StartSaveTraceJob(last_trace, std::move(path));
-                }
+                // Store the trace for the callback
+                m_pending_save_trace = last_trace;
+                
+                // Pause the emulator while the dialog is open (TraceUI's choice)
+                m_beeb_window->PauseEmulatorForDialog();
+                
+                // Use the new async GTK4 approach
+                SaveFileDialogGTKAsync(
+                    {{"Text files", {".txt"}}, {"All files", {".*"}}},
+                    "",
+                    TraceUISaveCallback
+                );
             }
 
             ImGui::SameLine();

@@ -3978,6 +3978,24 @@ bool BeebWindow::DebugIsRunEnabled() const {
 BBCMicroHaltReason BeebWindow::DebugGetHaltReason() const {
     return m_beeb_thread->DebugGetHaltReason();
 }
+
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+
+void BeebWindow::PauseEmulatorForDialog() {
+    m_beeb_thread->Send(std::make_shared<BeebThread::CallbackMessage>([](BBCMicro *m) -> void {
+        m->DebugHalt(BBCMicroHaltReason_ManualHalt, nullptr, -1);
+    }));
+}
+
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+
+void BeebWindow::ResumeEmulatorAfterDialog() {
+    m_beeb_thread->Send(std::make_shared<BeebThread::CallbackMessage>([](BBCMicro *m) -> void {
+        m->DebugRun();
+    }));
+}
 #endif
 
 //////////////////////////////////////////////////////////////////////////

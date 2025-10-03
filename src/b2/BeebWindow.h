@@ -342,6 +342,10 @@ class BeebWindow {
     BBCMicroHaltReason DebugGetHaltReason() const;
     void DebugStepOver(uint32_t dso);
     void DebugStepIn(uint32_t dso);
+    
+    // Helper methods for pausing/resuming emulator during dialogs
+    void PauseEmulatorForDialog();
+    void ResumeEmulatorAfterDialog();
 #endif
 
     // Handle double click or drag'n'drop.
