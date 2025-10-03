@@ -220,7 +220,7 @@ bool SelectorDialog::Open(std::string *path) {
     }
 }
 
-void SelectorDialog::OpenAsync(std::function<void(const std::string&)> callback) {
+void SelectorDialog::OpenWithCallback(std::function<void(const std::string&)> callback) {
     // Set up last path if needed
     if (m_last_path.empty()) {
         if (RecentPaths *recent = GetRecentPathsByTag(m_recent_paths_tag)) {
@@ -230,11 +230,11 @@ void SelectorDialog::OpenAsync(std::function<void(const std::string&)> callback)
         }
     }
     
-    // Call the platform-specific async implementation
-    this->HandleOpenAsync(callback);
+    // Call the platform-specific callback implementation
+    this->HandleOpenWithCallback(callback);
 }
 
-void SelectorDialog::HandleOpenAsync(std::function<void(const std::string&)> callback) {
+void SelectorDialog::HandleOpenWithCallback(std::function<void(const std::string&)> callback) {
     // Default implementation: fall back to synchronous
     std::string result = this->HandleOpen();
     callback(result);
@@ -336,13 +336,13 @@ std::string SaveFileDialog::HandleOpen() {
 #endif
 }
 
-void SaveFileDialog::HandleOpenAsync(std::function<void(const std::string&)> callback) {
+void SaveFileDialog::HandleOpenWithCallback(std::function<void(const std::string&)> callback) {
 #if SYSTEM_LINUX
-    // Use async GTK4 implementation on Linux
+    // Use callback-based GTK4 implementation on Linux
     SaveFileDialogGTKAsync(m_filters, m_last_path, callback);
 #else
     // Use synchronous fallback on other platforms
-    SelectorDialog::HandleOpenAsync(callback);
+    SelectorDialog::HandleOpenWithCallback(callback);
 #endif
 }
 

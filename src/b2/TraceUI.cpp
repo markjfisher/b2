@@ -73,11 +73,7 @@ class TraceUI : public SettingsUI {
     // For async save callback
     std::shared_ptr<Trace> m_pending_save_trace;
     
-    // Static callback for async save
-    static void TraceUISaveCallback(const std::string& path);
     
-    // Static instance for callback access
-    static TraceUI* s_current_instance;
 
     char m_stop_num_cycles_str[100] = {};
     char m_start_instruction_address_str[100] = {};
@@ -214,34 +210,11 @@ class TraceUI::SaveTraceJob : public JobQueue::Job {
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
-// Static instance for callback access
-TraceUI* TraceUI::s_current_instance = nullptr;
-
 TraceUI::TraceUI(BeebWindow *beeb_window)
     : m_beeb_window(beeb_window) {
     this->SetDefaultSize(ImVec2(350, 450));
 
     this->ResetTextBoxes();
-    
-    // Set this as the current instance for callbacks
-    s_current_instance = this;
-}
-
-//////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////
-
-void TraceUI::TraceUISaveCallback(const std::string& path) {
-    if (s_current_instance) {
-        if (!path.empty()) {
-            if (s_current_instance->m_pending_save_trace) {
-                s_current_instance->StartSaveTraceJob(s_current_instance->m_pending_save_trace, path);
-                s_current_instance->m_pending_save_trace.reset();
-            }
-        }
-        
-        // Resume the emulator regardless of whether the user saved or cancelled
-        s_current_instance->m_beeb_window->ResumeEmulatorAfterDialog();
-    }
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -516,7 +489,17 @@ void TraceUI::DoImGui() {
                 auto fd = CreateSaveFileDialog(RECENT_PATHS_TRACES);
                 fd->AddFilter("Text files", {".txt"});
                 fd->AddAllFilesFilter();
-                fd->OpenAsync(TraceUISaveCallback);
+                fd->OpenWithCallback([this](const std::string& path) {
+                    if (!path.empty()) {
+                        if (m_pending_save_trace) {
+                            StartSaveTraceJob(m_pending_save_trace, path);
+                            m_pending_save_trace.reset();
+                        }
+                    }
+                    
+                    // Resume the emulator regardless of whether the user saved or cancelled
+                    m_beeb_window->ResumeEmulatorAfterDialog();
+                });
             }
 
             ImGui::SameLine();

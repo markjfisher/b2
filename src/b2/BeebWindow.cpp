@@ -1539,7 +1539,7 @@ void BeebWindow::DoCommands(bool *close_window) {
         // Use the new async interface (works on all platforms)
         auto fd = CreateSaveFileDialog(RECENT_PATHS_PRINTER);
         fd->AddFilter("Data", {".dat"});
-        fd->OpenAsync([this](const std::string& path) {
+        fd->OpenWithCallback([this](const std::string& path) {
             if (!path.empty()) {
                 SaveFile(m_pending_printer_data, path, &m_msg);
             }
