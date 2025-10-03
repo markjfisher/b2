@@ -101,11 +101,12 @@ void MessageBox(const std::string &title, const std::string &text) {
 
 static GtkWidget *CreateFileDialog(const char *title,
                                    GtkFileChooserAction action) {
+    const char *accept_button_text = (action == GTK_FILE_CHOOSER_ACTION_SAVE) ? "_Save" : "_Open";
     GtkWidget *gdialog = gtk_file_chooser_dialog_new(title,
                                                      nullptr,
                                                      action,
                                                      "_Cancel", GTK_RESPONSE_CANCEL,
-                                                     "_Open", GTK_RESPONSE_ACCEPT,
+                                                     accept_button_text, GTK_RESPONSE_ACCEPT,
                                                      nullptr);
     return gdialog;
 }
