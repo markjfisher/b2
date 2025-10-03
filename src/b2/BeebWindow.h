@@ -437,6 +437,9 @@ class BeebWindow {
 
     // For async dialog callbacks
     std::vector<uint8_t> m_pending_printer_data;
+    SDLUniquePtr<SDL_Surface> m_pending_screenshot;
+    std::shared_ptr<const DiscImage> m_pending_disc_image;
+    std::unique_ptr<SaveFileDialog> m_pending_disc_dialog;
 
     BeebWindowSettings m_settings;
 

@@ -1597,16 +1597,21 @@ void BeebWindow::DoCommands(bool *close_window) {
     }
 
     if (m_cst.WasActioned(g_save_screenshot_command)) {
-        SaveFileDialog fd(RECENT_PATHS_SCREENSHOT);
-
-        fd.AddFilter("PNG", {".png"});
-
-        std::string path;
-        if (fd.Open(&path)) {
-            SDLUniquePtr<SDL_Surface> screenshot = this->CreateScreenshot(SDL_PIXELFORMAT_RGB24);
-            if (!!screenshot) {
-                SaveSDLSurface(screenshot.get(), path, &m_msg);
-            }
+        // Create screenshot data first (before dialog)
+        SDLUniquePtr<SDL_Surface> screenshot = this->CreateScreenshot(SDL_PIXELFORMAT_RGB24);
+        if (!!screenshot) {
+            // Store screenshot data for callback
+            m_pending_screenshot = std::move(screenshot);
+            
+            // Use the new callback-based interface
+            auto fd = CreateSaveFileDialog(RECENT_PATHS_SCREENSHOT);
+            fd->AddFilter("PNG", {".png"});
+            fd->OpenWithCallback([this](const std::string& path) {
+                if (!path.empty() && m_pending_screenshot) {
+                    SaveSDLSurface(m_pending_screenshot.get(), path, &m_msg);
+                }
+                m_pending_screenshot.reset();
+            });
         }
     }
 
@@ -2131,20 +2136,28 @@ void BeebWindow::DoDiscDriveSubMenu(int drive,
         }
 
         if (ImGui::MenuItem("Save copy as...")) {
-            SaveFileDialog fd(RECENT_PATHS_DISC_IMAGE);
-
+            // Store the disc image for the callback
+            m_pending_disc_image = disc_image;
+            
+            // Store the dialog as member variable to keep it alive for recent paths
+            m_pending_disc_dialog = CreateSaveFileDialog(RECENT_PATHS_DISC_IMAGE);
+            
             std::vector<FileDialogFilter> filters = disc_image->GetFileDialogFilters();
             for (const FileDialogFilter &filter : filters) {
-                fd.AddFilter(filter.name, filter.extensions);
+                m_pending_disc_dialog->AddFilter(filter.name, filter.extensions);
             }
-            fd.AddAllFilesFilter();
-
-            std::string path;
-            if (fd.Open(&path)) {
-                if (disc_image->SaveToFile(path, &m_msg)) {
-                    fd.AddLastPathToRecentPaths();
+            m_pending_disc_dialog->AddAllFilesFilter();
+            
+            m_pending_disc_dialog->OpenWithCallback([this](const std::string& path) {
+                if (!path.empty() && m_pending_disc_image) {
+                    if (m_pending_disc_image->SaveToFile(path, &m_msg)) {
+                        // Now we can call this because m_pending_disc_dialog is still alive
+                        m_pending_disc_dialog->AddLastPathToRecentPaths();
+                    }
                 }
-            }
+                m_pending_disc_image = nullptr;
+                m_pending_disc_dialog.reset(); // Clean up the dialog
+            });
         }
     }
 }
