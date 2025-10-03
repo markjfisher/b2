@@ -440,6 +440,10 @@ class BeebWindow {
     SDLUniquePtr<SDL_Surface> m_pending_screenshot;
     std::shared_ptr<const DiscImage> m_pending_disc_image;
     std::unique_ptr<SaveFileDialog> m_pending_disc_dialog;
+    
+    // For async symbol file open dialog
+    void* m_pending_symbol_parser = nullptr; // Will be cast to SymbolTable::SymbolParser*
+    std::unique_ptr<OpenFileDialog> m_pending_symbol_dialog;
 
     BeebWindowSettings m_settings;
 

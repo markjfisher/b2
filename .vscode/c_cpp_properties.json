@@ -6,7 +6,9 @@
                 "${workspaceFolder}/**"
             ],
             "defines": [
-                "BBCMICRO_TRACE"
+                "BBCMICRO_TRACE",
+                "BBCMICRO_DEBUGGER",
+                "ENABLE_DEBUG_MENU"
             ],
             "compilerPath": "/usr/bin/clang",
             "cStandard": "c17",

@@ -2544,10 +2544,14 @@ void BeebWindow::DoDebugMenu() {
             ImGui::EndMenu();
 
             if (load_symbols) {
-                OpenFileDialog fd(RECENT_PATHS_SYMBOLS);
+                // Store the selected parser for the callback
+                m_pending_symbol_parser = const_cast<SymbolTable::SymbolParser*>(selected_parser);
+                
+                // Store the dialog as member variable to keep it alive for recent paths
+                m_pending_symbol_dialog = std::make_unique<OpenFileDialog>(RECENT_PATHS_SYMBOLS);
 
                 if (selected_parser) {
-                    fd.AddFilter(selected_parser->GetFormatName(), selected_parser->GetSuggestedFileExtensions());
+                    m_pending_symbol_dialog->AddFilter(selected_parser->GetFormatName(), selected_parser->GetSuggestedFileExtensions());
                 } else {
                     std::set<std::string> auto_detect_exts;
                     for (const std::unique_ptr<const SymbolTable::SymbolParser> &parser : parsers) {
@@ -2555,21 +2559,29 @@ void BeebWindow::DoDebugMenu() {
                         auto_detect_exts.insert(exts.begin(), exts.end());
                     }
 
-                    fd.AddFilter("Auto detect", std::vector<std::string>(auto_detect_exts.begin(), auto_detect_exts.end()));
+                    m_pending_symbol_dialog->AddFilter("Auto detect", std::vector<std::string>(auto_detect_exts.begin(), auto_detect_exts.end()));
                 }
 
-                fd.AddAllFilesFilter();
+                m_pending_symbol_dialog->AddAllFilesFilter();
 
-                std::string path;
-                if (fd.Open(&path)) {
-                    // The settings can be modified once the symbol file is loaded.
-                    bool success = m_symbol_table->LoadFromFile(path, selected_parser, &m_msg);
-                    if (success) {
-                        m_msg.i.f("Symbols loaded from file: %s\n", path.c_str());
-                    } else {
-                        m_msg.e.f("Failed to load symbols from: %s\n", path.c_str());
+                m_pending_symbol_dialog->OpenWithCallback([this](const std::string& path) {
+                    if (!path.empty()) {
+                        // The settings can be modified once the symbol file is loaded.
+                        const SymbolTable::SymbolParser* parser = static_cast<const SymbolTable::SymbolParser*>(m_pending_symbol_parser);
+                        bool success = m_symbol_table->LoadFromFile(path, parser, &m_msg);
+                        if (success) {
+                            m_msg.i.f("Symbols loaded from file: %s\n", path.c_str());
+                            // Update recent paths
+                            m_pending_symbol_dialog->AddLastPathToRecentPaths();
+                        } else {
+                            m_msg.e.f("Failed to load symbols from: %s\n", path.c_str());
+                        }
                     }
-                }
+                    
+                    // Clean up
+                    m_pending_symbol_parser = nullptr;
+                    m_pending_symbol_dialog.reset();
+                });
             }
         }
 

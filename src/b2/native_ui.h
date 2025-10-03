@@ -133,6 +133,7 @@ class OpenFileDialog : public FileDialog {
 
   protected:
     std::string HandleOpen() override;
+    void HandleOpenWithCallback(std::function<void(const std::string&)> callback) override;
 
   private:
 };

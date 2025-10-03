@@ -260,9 +260,8 @@ void SaveFileDialogGTKAsync(const std::vector<OpenFileDialog::Filter> &filters,
 // Async function for Open File Dialog
 void OpenFileDialogGTKAsync(const std::vector<OpenFileDialog::Filter> &filters,
                            const std::string &default_path,
-                           void (*callback)(const std::string& path)) {
-    (void)filters; // Suppress unused parameter warning
-    (void)default_path; // Suppress unused parameter warning
+                           std::function<void(const std::string&)> callback) {
+    (void)filters; // Suppress unused parameter warning - filters not yet implemented for GTK4
     
     // Get the main application window as parent
     GtkWindow *parent = nullptr;
@@ -284,8 +283,15 @@ void OpenFileDialogGTKAsync(const std::vector<OpenFileDialog::Filter> &filters,
     // Set dialog properties
     gtk_file_dialog_set_title(file_dialog, "Open File");
     
-    // Set the callback and operation type for this operation
-    g_trace_save_callback = callback;
+    // Set initial folder if provided
+    if (!default_path.empty()) {
+        GFile *initial_folder = g_file_new_for_path(default_path.c_str());
+        gtk_file_dialog_set_initial_folder(file_dialog, initial_folder);
+        g_object_unref(initial_folder);
+    }
+    
+    // Store the callback for this operation
+    g_std_function_callback = callback;
     g_current_dialog_operation = DialogOperation::Open;
     
     // Start the async file dialog (non-blocking)
@@ -298,7 +304,6 @@ void OpenFileDialogGTKAsync(const std::vector<OpenFileDialog::Filter> &filters,
 // Async function for Select Folder Dialog
 void SelectFolderDialogGTKAsync(const std::string &default_path,
                                void (*callback)(const std::string& path)) {
-    (void)default_path; // Suppress unused parameter warning
     
     // Get the main application window as parent
     GtkWindow *parent = nullptr;
@@ -319,6 +324,13 @@ void SelectFolderDialogGTKAsync(const std::string &default_path,
     
     // Set dialog properties
     gtk_file_dialog_set_title(file_dialog, "Select Folder");
+    
+    // Set initial folder if provided
+    if (!default_path.empty()) {
+        GFile *initial_folder = g_file_new_for_path(default_path.c_str());
+        gtk_file_dialog_set_initial_folder(file_dialog, initial_folder);
+        g_object_unref(initial_folder);
+    }
     
     // Set the callback and operation type for this operation
     g_trace_save_callback = callback;
@@ -446,8 +458,7 @@ std::string SaveFileDialogGTK(const std::vector<OpenFileDialog::Filter> &filters
 void SaveFileDialogGTKAsync(const std::vector<OpenFileDialog::Filter> &filters,
                            const std::string &default_path,
                            std::function<void(const std::string&)> callback) {
-    (void)filters; // Suppress unused parameter warning
-    (void)default_path; // Suppress unused parameter warning
+    (void)filters; // Suppress unused parameter warning - filters not yet implemented for GTK4
     
     // Get the main application window as parent
     GtkWindow *parent = nullptr;
@@ -468,6 +479,13 @@ void SaveFileDialogGTKAsync(const std::vector<OpenFileDialog::Filter> &filters,
     
     // Set dialog properties
     gtk_file_dialog_set_title(file_dialog, "Save File");
+    
+    // Set initial folder if provided
+    if (!default_path.empty()) {
+        GFile *initial_folder = g_file_new_for_path(default_path.c_str());
+        gtk_file_dialog_set_initial_folder(file_dialog, initial_folder);
+        g_object_unref(initial_folder);
+    }
     
     // Store the callback for this operation
     g_std_function_callback = callback;

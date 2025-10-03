@@ -38,7 +38,7 @@ void SaveFileDialogGTKAsync(const std::vector<OpenFileDialog::Filter> &filters,
 
 void OpenFileDialogGTKAsync(const std::vector<OpenFileDialog::Filter> &filters,
                            const std::string &default_path,
-                           void (*callback)(const std::string& path));
+                           std::function<void(const std::string&)> callback);
 
 void SelectFolderDialogGTKAsync(const std::string &default_path,
                                void (*callback)(const std::string& path));

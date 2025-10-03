@@ -304,6 +304,18 @@ std::string OpenFileDialog::HandleOpen() {
 #endif
 }
 
+void OpenFileDialog::HandleOpenWithCallback(std::function<void(const std::string&)> callback) {
+#if SYSTEM_LINUX
+    // Use callback-based GTK4 implementation on Linux
+    OpenFileDialogGTKAsync(m_filters, m_last_path, [callback](const std::string& path) {
+        callback(path);
+    });
+#else
+    // Use synchronous fallback on other platforms
+    SelectorDialog::HandleOpenWithCallback(callback);
+#endif
+}
+
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
