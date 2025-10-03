@@ -80,11 +80,6 @@ void SetClipboardImage(SDL_Surface *surface, Messages *messages) {
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
-// Static callback for message dialog
-static void message_dialog_response_callback(GtkDialog *dialog, gint /*response_id*/, gpointer /*user_data*/) {
-    gtk_window_destroy(GTK_WINDOW(dialog));
-}
-
 void MessageBox(const std::string &title, const std::string &text) {
     // Get the main application window as parent
     GtkWindow *parent = nullptr;
@@ -100,25 +95,16 @@ void MessageBox(const std::string &title, const std::string &text) {
         g_list_free(toplevels);
     }
     
-    GtkWidget *dialog = gtk_message_dialog_new(parent,
-                                               GTK_DIALOG_MODAL,
-                                               GTK_MESSAGE_ERROR,
-                                               GTK_BUTTONS_OK,
-                                               "%s",
-                                               title.c_str());
-    gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dialog),
-                                             "%s",
-                                             text.c_str());
+    // Use GTK4's GtkAlertDialog instead of deprecated GtkMessageDialog
+    GtkAlertDialog *alert = gtk_alert_dialog_new(title.c_str());
+    gtk_alert_dialog_set_detail(alert, text.c_str());
+    gtk_alert_dialog_set_modal(alert, TRUE);
     
-    // Set dialog properties for proper floating behavior
-    gtk_window_set_modal(GTK_WINDOW(dialog), TRUE);
-    if (parent) {
-        gtk_window_set_transient_for(GTK_WINDOW(dialog), parent);
-    }
+    // Show the alert dialog
+    gtk_alert_dialog_show(alert, parent);
     
-    // Connect response signal and show dialog (non-blocking)
-    g_signal_connect(dialog, "response", G_CALLBACK(message_dialog_response_callback), nullptr);
-    gtk_widget_show(dialog);
+    // Clean up
+    g_object_unref(alert);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -141,6 +127,9 @@ static GtkWidget *CreateFileDialog(const char *title,
     }
     
     const char *accept_button_text = (action == GTK_FILE_CHOOSER_ACTION_SAVE) ? "_Save" : "_Open";
+    
+    // Note: gtk_file_chooser_dialog_new is deprecated in GTK4, but we keep it for legacy compatibility
+    // The new async dialogs use GtkFileDialog instead
     GtkWidget *gdialog = gtk_file_chooser_dialog_new(title,
                                                      parent,
                                                      action,
@@ -168,6 +157,7 @@ void ProcessGTKEvents() {
 
 // Callback for GTK4 async file dialog
 static void async_file_dialog_response_callback(GObject *source_object, GAsyncResult *res, gpointer user_data) {
+    (void)user_data; // Suppress unused parameter warning
     GtkFileDialog *dialog = GTK_FILE_DIALOG(source_object);
     GError *error = nullptr;
     
@@ -209,6 +199,8 @@ static void async_file_dialog_response_callback(GObject *source_object, GAsyncRe
 void SaveFileDialogGTKAsync(const std::vector<OpenFileDialog::Filter> &filters,
                            const std::string &default_path,
                            void (*callback)(const std::string& path)) {
+    (void)filters; // Suppress unused parameter warning
+    (void)default_path; // Suppress unused parameter warning
     // Get the main application window as parent
     GtkWindow *parent = nullptr;
     GList *toplevels = gtk_window_list_toplevels();
@@ -240,6 +232,7 @@ void SaveFileDialogGTKAsync(const std::vector<OpenFileDialog::Filter> &filters,
 }
 
 static std::string RunFileDialog(GtkWidget *gdialog) {
+    (void)gdialog; // Suppress unused parameter warning
     // Get the main application window as parent
     GtkWindow *parent = nullptr;
     GList *toplevels = gtk_window_list_toplevels();
@@ -286,6 +279,7 @@ static void SetDefaultPath(GtkWidget *gdialog,
                            const std::string &default_path) {
     if (!default_path.empty()) {
         GFile *file = g_file_new_for_path(default_path.c_str());
+        // Note: gtk_file_chooser_set_file is deprecated in GTK4, but we keep it for legacy compatibility
         gtk_file_chooser_set_file(GTK_FILE_CHOOSER(gdialog), file, nullptr);
         g_object_unref(file);
     }
@@ -314,6 +308,7 @@ static void AddFilters(GtkWidget *gdialog,
             gtk_file_filter_add_pattern(gfilter, ("*" + extension).c_str());
         }
 
+        // Note: gtk_file_chooser_add_filter is deprecated in GTK4, but we keep it for legacy compatibility
         gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(gdialog), gfilter);
     }
 }
