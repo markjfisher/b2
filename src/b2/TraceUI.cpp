@@ -10,7 +10,6 @@
 #include <shared/debug.h>
 #include <string.h>
 #include "native_ui.h"
-#include "native_ui_gtk.h"
 #include <inttypes.h>
 #include "keys.h"
 #include <math.h>
@@ -513,12 +512,11 @@ void TraceUI::DoImGui() {
                 // Pause the emulator while the dialog is open (TraceUI's choice)
                 m_beeb_window->PauseEmulatorForDialog();
                 
-                // Use the new async GTK4 approach
-                SaveFileDialogGTKAsync(
-                    {{"Text files", {".txt"}}, {"All files", {".*"}}},
-                    "",
-                    TraceUISaveCallback
-                );
+                // Use the new async interface (works on all platforms)
+                auto fd = CreateSaveFileDialog(RECENT_PATHS_TRACES);
+                fd->AddFilter("Text files", {".txt"});
+                fd->AddAllFilesFilter();
+                fd->OpenAsync(TraceUISaveCallback);
             }
 
             ImGui::SameLine();

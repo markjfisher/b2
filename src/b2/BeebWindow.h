@@ -346,6 +346,7 @@ class BeebWindow {
     // Helper methods for pausing/resuming emulator during dialogs
     void PauseEmulatorForDialog();
     void ResumeEmulatorAfterDialog();
+
 #endif
 
     // Handle double click or drag'n'drop.
@@ -433,6 +434,9 @@ class BeebWindow {
     // Buffer for SDL keyboard events, so they can be handled as part of
     // the usual update.
     std::vector<SDL_KeyboardEvent> m_sdl_keyboard_events;
+
+    // For async dialog callbacks
+    std::vector<uint8_t> m_pending_printer_data;
 
     BeebWindowSettings m_settings;
 

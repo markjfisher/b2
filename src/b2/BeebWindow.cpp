@@ -685,6 +685,7 @@ BeebWindow::BeebWindow(BeebWindowInitArguments init_arguments)
     , m_symbol_table(std::make_unique<SymbolTable>())
 #endif
 {
+    
     m_name = m_init_arguments.name;
 
     m_message_list = std::make_shared<MessageList>("BeebWindow");
@@ -1529,14 +1530,22 @@ void BeebWindow::DoCommands(bool *close_window) {
     if (m_cst.WasActioned(g_save_printer_buffer_command)) {
         std::vector<uint8_t> data = m_beeb_thread->GetPrinterData();
 
-        SaveFileDialog fd(RECENT_PATHS_PRINTER);
+        // Store the data for the callback
+        m_pending_printer_data = data;
 
-        fd.AddFilter("Data", {".dat"});
+        // Pause the emulator while the dialog is open
+        this->PauseEmulatorForDialog();
 
-        std::string path;
-        if (fd.Open(&path)) {
-            SaveFile(data, path, &m_msg);
-        }
+        // Use the new async interface (works on all platforms)
+        auto fd = CreateSaveFileDialog(RECENT_PATHS_PRINTER);
+        fd->AddFilter("Data", {".dat"});
+        fd->OpenAsync([this](const std::string& path) {
+            if (!path.empty()) {
+                SaveFile(m_pending_printer_data, path, &m_msg);
+            }
+            m_pending_printer_data.clear();
+            this->ResumeEmulatorAfterDialog();
+        });
     }
 
     DoCopyModeCommands(&m_settings.printer_copy_settings,
@@ -3996,6 +4005,7 @@ void BeebWindow::ResumeEmulatorAfterDialog() {
         m->DebugRun();
     }));
 }
+
 #endif
 
 //////////////////////////////////////////////////////////////////////////

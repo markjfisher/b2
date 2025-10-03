@@ -1,6 +1,9 @@
 #define _CRT_NONSTDC_NO_DEPRECATE
 #include <shared/system.h>
 #include "native_ui.h"
+#if SYSTEM_LINUX
+#include "native_ui_gtk.h"
+#endif
 #include <shared/debug.h>
 #include <shared/path.h>
 #include <map>
@@ -217,6 +220,26 @@ bool SelectorDialog::Open(std::string *path) {
     }
 }
 
+void SelectorDialog::OpenAsync(std::function<void(const std::string&)> callback) {
+    // Set up last path if needed
+    if (m_last_path.empty()) {
+        if (RecentPaths *recent = GetRecentPathsByTag(m_recent_paths_tag)) {
+            if (recent->GetNumPaths() > 0) {
+                m_last_path = recent->GetPathByIndex(0);
+            }
+        }
+    }
+    
+    // Call the platform-specific async implementation
+    this->HandleOpenAsync(callback);
+}
+
+void SelectorDialog::HandleOpenAsync(std::function<void(const std::string&)> callback) {
+    // Default implementation: fall back to synchronous
+    std::string result = this->HandleOpen();
+    callback(result);
+}
+
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
@@ -288,6 +311,11 @@ SaveFileDialog::SaveFileDialog(std::string tag)
     : FileDialog(std::move(tag)) {
 }
 
+// Factory function to create platform-specific SaveFileDialog
+std::unique_ptr<SaveFileDialog> CreateSaveFileDialog(std::string tag) {
+    return std::make_unique<SaveFileDialog>(std::move(tag));
+}
+
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
@@ -305,6 +333,16 @@ std::string SaveFileDialog::HandleOpen() {
 
     return SaveFileDialogGTK(m_filters, m_last_path);
 
+#endif
+}
+
+void SaveFileDialog::HandleOpenAsync(std::function<void(const std::string&)> callback) {
+#if SYSTEM_LINUX
+    // Use async GTK4 implementation on Linux
+    SaveFileDialogGTKAsync(m_filters, m_last_path, callback);
+#else
+    // Use synchronous fallback on other platforms
+    SelectorDialog::HandleOpenAsync(callback);
 #endif
 }
 

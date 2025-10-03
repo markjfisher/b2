@@ -82,9 +82,15 @@ class SelectorDialog {
     void AddLastPathToRecentPaths();
 
     bool Open(std::string *path);
+    
+    // New async interface
+    void OpenAsync(std::function<void(const std::string&)> callback);
 
   protected:
     virtual std::string HandleOpen() = 0;
+    
+    // New async implementation (optional override)
+    virtual void HandleOpenAsync(std::function<void(const std::string&)> callback);
 
     std::string m_last_path;
 
@@ -140,9 +146,13 @@ class SaveFileDialog : public FileDialog {
 
   protected:
     std::string HandleOpen() override;
+    void HandleOpenAsync(std::function<void(const std::string&)> callback) override;
 
   private:
 };
+
+// Factory function to create platform-specific SaveFileDialog
+std::unique_ptr<SaveFileDialog> CreateSaveFileDialog(std::string tag);
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
