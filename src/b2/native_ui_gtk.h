@@ -26,11 +26,7 @@ std::string OpenFileDialogGTK(const std::vector<OpenFileDialog::Filter> &filters
 std::string SaveFileDialogGTK(const std::vector<OpenFileDialog::Filter> &filters,
                               const std::string &default_path);
 
-void SaveFileDialogGTKAsync(const std::vector<OpenFileDialog::Filter> &filters,
-                           const std::string &default_path,
-                           void (*callback)(const std::string& path));
-
-// New std::function version for the interface
+// std::function version for the interface
 void SaveFileDialogGTKAsync(const std::vector<OpenFileDialog::Filter> &filters,
                            const std::string &default_path,
                            std::function<void(const std::string&)> callback);

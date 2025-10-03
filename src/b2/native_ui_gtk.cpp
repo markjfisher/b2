@@ -220,42 +220,6 @@ static void async_file_dialog_response_callback(GObject *source_object, GAsyncRe
     g_object_unref(dialog);
 }
 
-// New async function for TraceUI Save
-void SaveFileDialogGTKAsync(const std::vector<OpenFileDialog::Filter> &filters,
-                           const std::string &default_path,
-                           void (*callback)(const std::string& path)) {
-    (void)filters; // Suppress unused parameter warning
-    (void)default_path; // Suppress unused parameter warning
-    // Get the main application window as parent
-    GtkWindow *parent = nullptr;
-    GList *toplevels = gtk_window_list_toplevels();
-    if (toplevels) {
-        for (GList *iter = toplevels; iter; iter = iter->next) {
-            GtkWidget *window = GTK_WIDGET(iter->data);
-            if (gtk_widget_get_visible(window) && GTK_IS_WINDOW(window)) {
-                parent = GTK_WINDOW(window);
-                break;
-            }
-        }
-        g_list_free(toplevels);
-    }
-    
-    // Create GTK4 native file dialog
-    GtkFileDialog *file_dialog = gtk_file_dialog_new();
-    
-    // Set dialog properties
-    gtk_file_dialog_set_title(file_dialog, "Save File");
-    
-    // Set the callback and operation type for this operation
-    g_trace_save_callback = callback;
-    g_current_dialog_operation = DialogOperation::Save;
-    
-    // Start the async file dialog (non-blocking)
-    gtk_file_dialog_save(file_dialog, parent, nullptr, async_file_dialog_response_callback, nullptr);
-    
-    // Don't unref the dialog - it needs to stay alive for the async operation
-    // The dialog will be cleaned up in the callback
-}
 
 // Async function for Open File Dialog
 void OpenFileDialogGTKAsync(const std::vector<OpenFileDialog::Filter> &filters,
