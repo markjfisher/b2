@@ -166,6 +166,45 @@ void ProcessGTKEvents() {
     }
 }
 
+// Helper function to create GTK4 file filters from our filter format
+static GListModel* CreateGTK4Filters(const std::vector<OpenFileDialog::Filter> &filters) {
+    if (filters.empty()) {
+        return nullptr;
+    }
+    
+    GListStore *store = g_list_store_new(GTK_TYPE_FILE_FILTER);
+    
+    for (const OpenFileDialog::Filter &filter : filters) {
+        GtkFileFilter *gfilter = gtk_file_filter_new();
+        
+        // Set the filter name
+        std::string name = filter.title + " (";
+        for (size_t i = 0; i < filter.extensions.size(); ++i) {
+            if (i > 0) {
+                name += "; ";
+            }
+            name += "*" + filter.extensions[i];
+        }
+        name += ")";
+        gtk_file_filter_set_name(gfilter, name.c_str());
+        
+        // Add patterns for each extension
+        for (const std::string &extension : filter.extensions) {
+            if (extension == ".*") {
+                // Special case for "all files" filter
+                gtk_file_filter_add_pattern(gfilter, "*");
+            } else {
+                gtk_file_filter_add_pattern(gfilter, ("*" + extension).c_str());
+            }
+        }
+        
+        g_list_store_append(store, gfilter);
+        g_object_unref(gfilter); // The store takes ownership
+    }
+    
+    return G_LIST_MODEL(store);
+}
+
 
 // Callback for GTK4 async file dialog
 static void async_file_dialog_response_callback(GObject *source_object, GAsyncResult *res, gpointer user_data) {
@@ -225,7 +264,6 @@ static void async_file_dialog_response_callback(GObject *source_object, GAsyncRe
 void OpenFileDialogGTKAsync(const std::vector<OpenFileDialog::Filter> &filters,
                            const std::string &default_path,
                            std::function<void(const std::string&)> callback) {
-    (void)filters; // Suppress unused parameter warning - filters not yet implemented for GTK4
     
     // Get the main application window as parent
     GtkWindow *parent = nullptr;
@@ -246,6 +284,13 @@ void OpenFileDialogGTKAsync(const std::vector<OpenFileDialog::Filter> &filters,
     
     // Set dialog properties
     gtk_file_dialog_set_title(file_dialog, "Open File");
+    
+    // Apply file filters if provided
+    GListModel *gtk_filters = CreateGTK4Filters(filters);
+    if (gtk_filters) {
+        gtk_file_dialog_set_filters(file_dialog, gtk_filters);
+        g_object_unref(gtk_filters); // Clean up the list model
+    }
     
     // Set initial folder if provided (extract directory from file path)
     if (!default_path.empty()) {
@@ -428,7 +473,6 @@ std::string SaveFileDialogGTK(const std::vector<OpenFileDialog::Filter> &filters
 void SaveFileDialogGTKAsync(const std::vector<OpenFileDialog::Filter> &filters,
                            const std::string &default_path,
                            std::function<void(const std::string&)> callback) {
-    (void)filters; // Suppress unused parameter warning - filters not yet implemented for GTK4
     
     // Get the main application window as parent
     GtkWindow *parent = nullptr;
@@ -449,6 +493,13 @@ void SaveFileDialogGTKAsync(const std::vector<OpenFileDialog::Filter> &filters,
     
     // Set dialog properties
     gtk_file_dialog_set_title(file_dialog, "Save File");
+    
+    // Apply file filters if provided
+    GListModel *gtk_filters = CreateGTK4Filters(filters);
+    if (gtk_filters) {
+        gtk_file_dialog_set_filters(file_dialog, gtk_filters);
+        g_object_unref(gtk_filters); // Clean up the list model
+    }
     
     // Set initial folder if provided (extract directory from file path)
     if (!default_path.empty()) {
