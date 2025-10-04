@@ -80,6 +80,7 @@ class SelectorDialog {
     RecentPaths *GetRecentPaths() const;
     //void SetRecentPathsTag(std::string tag);
     void AddLastPathToRecentPaths();
+    void AddLastPathToRecentPaths(const std::string& path);
 
     bool Open(std::string *path);
     

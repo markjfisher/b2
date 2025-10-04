@@ -2152,7 +2152,7 @@ void BeebWindow::DoDiscDriveSubMenu(int drive,
                 if (!path.empty() && m_pending_disc_image) {
                     if (m_pending_disc_image->SaveToFile(path, &m_msg)) {
                         // Now we can call this because m_pending_disc_dialog is still alive
-                        m_pending_disc_dialog->AddLastPathToRecentPaths();
+                        m_pending_disc_dialog->AddLastPathToRecentPaths(path);
                     }
                 }
                 m_pending_disc_image = nullptr;
@@ -2572,7 +2572,7 @@ void BeebWindow::DoDebugMenu() {
                         if (success) {
                             m_msg.i.f("Symbols loaded from file: %s\n", path.c_str());
                             // Update recent paths
-                            m_pending_symbol_dialog->AddLastPathToRecentPaths();
+                            m_pending_symbol_dialog->AddLastPathToRecentPaths(path);
                         } else {
                             m_msg.e.f("Failed to load symbols from: %s\n", path.c_str());
                         }

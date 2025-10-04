@@ -67,6 +67,10 @@ class ConfigsUI : public SettingsUI {
     int m_pending_new_hard_disk_index = -1;
     BeebConfig* m_pending_new_config = nullptr;
     bool* m_pending_new_edited = nullptr;
+    
+    // For ROM file loading
+    BeebConfig::ROM* m_pending_rom = nullptr;
+    bool* m_pending_rom_edited = nullptr;
 
     void DoROMInfoGui(const char *caption, const BeebConfig::ROM &rom, const bool *writeable);
 
@@ -519,7 +523,7 @@ void ConfigsUI::DoEditConfigGui() {
                                 m_pending_config->hard_disk_dat_paths[static_cast<size_t>(m_pending_hard_disk_index)] = path;
                                 *m_pending_edited = true;
                                 // Update recent paths
-                                m_hard_disk_ofd.AddLastPathToRecentPaths();
+                                m_hard_disk_ofd.AddLastPathToRecentPaths(path);
                             }
                             
                             // Clean up
@@ -554,7 +558,7 @@ void ConfigsUI::DoEditConfigGui() {
                                             m_pending_new_config->hard_disk_dat_paths[static_cast<size_t>(m_pending_new_hard_disk_index)] = path;
                                             *m_pending_new_edited = true;
                                             // Update recent paths
-                                            m_new_hard_disk_sfd.AddLastPathToRecentPaths();
+                                            m_new_hard_disk_sfd.AddLastPathToRecentPaths(path);
                                         }
                                     }
                                     
@@ -866,11 +870,24 @@ ROMEditAction ConfigsUI::DoROMEditGui(const char *caption,
 
     if (ImGui::BeginPopup(ROM_POPUP)) {
         if (ImGui::MenuItem("File...")) {
-            if (m_rom_ofd.Open(&rom->file_name)) {
-                rom->standard_rom = nullptr;
-                edited = true;
-                m_rom_ofd.AddLastPathToRecentPaths();
-            }
+            // Store the context for the callback
+            m_pending_rom = rom;
+            m_pending_rom_edited = &edited;
+            
+            // Use the existing member dialog to preserve recent paths
+            m_rom_ofd.OpenWithCallback([this](const std::string& path) {
+                if (!path.empty() && m_pending_rom && m_pending_rom_edited) {
+                    m_pending_rom->file_name = path;
+                    m_pending_rom->standard_rom = nullptr;
+                    *m_pending_rom_edited = true;
+                    // Update recent paths
+                    m_rom_ofd.AddLastPathToRecentPaths(path);
+                }
+                
+                // Clean up
+                m_pending_rom = nullptr;
+                m_pending_rom_edited = nullptr;
+            });
         }
 
         if (ImGuiRecentMenu(&rom->file_name, "Recent file", m_rom_ofd)) {

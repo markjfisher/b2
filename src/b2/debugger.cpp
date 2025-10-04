@@ -1477,7 +1477,7 @@ class MemoryDebugWindow : public DebugUIWithPersistentData<MemoryDebugWindowPers
                             SaveFile(buffer, path, &msgs);
                             
                             // Update recent paths
-                            m_window->m_pending_memory_dialog->AddLastPathToRecentPaths();
+                            m_window->m_pending_memory_dialog->AddLastPathToRecentPaths(path);
                         }
                         
                         // Clean up

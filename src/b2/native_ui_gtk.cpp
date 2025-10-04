@@ -247,9 +247,15 @@ void OpenFileDialogGTKAsync(const std::vector<OpenFileDialog::Filter> &filters,
     // Set dialog properties
     gtk_file_dialog_set_title(file_dialog, "Open File");
     
-    // Set initial folder if provided
+    // Set initial folder if provided (extract directory from file path)
     if (!default_path.empty()) {
-        GFile *initial_folder = g_file_new_for_path(default_path.c_str());
+        std::string initial_folder_path = default_path;
+        size_t last_slash = default_path.find_last_of('/');
+        if (last_slash != std::string::npos && last_slash > 0) {
+            initial_folder_path = default_path.substr(0, last_slash);
+        }
+        
+        GFile *initial_folder = g_file_new_for_path(initial_folder_path.c_str());
         gtk_file_dialog_set_initial_folder(file_dialog, initial_folder);
         g_object_unref(initial_folder);
     }
@@ -444,9 +450,15 @@ void SaveFileDialogGTKAsync(const std::vector<OpenFileDialog::Filter> &filters,
     // Set dialog properties
     gtk_file_dialog_set_title(file_dialog, "Save File");
     
-    // Set initial folder if provided
+    // Set initial folder if provided (extract directory from file path)
     if (!default_path.empty()) {
-        GFile *initial_folder = g_file_new_for_path(default_path.c_str());
+        std::string initial_folder_path = default_path;
+        size_t last_slash = default_path.find_last_of('/');
+        if (last_slash != std::string::npos && last_slash > 0) {
+            initial_folder_path = default_path.substr(0, last_slash);
+        }
+        
+        GFile *initial_folder = g_file_new_for_path(initial_folder_path.c_str());
         gtk_file_dialog_set_initial_folder(file_dialog, initial_folder);
         g_object_unref(initial_folder);
     }

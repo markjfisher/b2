@@ -197,6 +197,11 @@ void SelectorDialog::AddLastPathToRecentPaths() {
     }
 }
 
+void SelectorDialog::AddLastPathToRecentPaths(const std::string& path) {
+    m_last_path = path;
+    AddLastPathToRecentPaths();
+}
+
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
