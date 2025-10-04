@@ -5,6 +5,7 @@
 //////////////////////////////////////////////////////////////////////////
 
 #include "conf.h"
+#include "discs.h"
 
 struct BeebWindowInitArguments;
 class VBlankMonitor;
@@ -444,6 +445,22 @@ class BeebWindow {
     // For async symbol file open dialog
     void* m_pending_symbol_parser = nullptr; // Will be cast to SymbolTable::SymbolParser*
     std::unique_ptr<OpenFileDialog> m_pending_symbol_dialog;
+    
+    // For async FileMenuItem operations - need to persist until callbacks complete
+    struct FileMenuItemState {
+        std::string path;
+        const Disc *new_disc_type = nullptr;
+        std::shared_ptr<std::vector<uint8_t>> new_disc_data;
+        SelectorDialog *used_dialog = nullptr;
+        bool load = false;
+        int drive = -1;
+        bool boot = false;
+    };
+    FileMenuItemState m_pending_file_menu_item;
+    
+    // Friend class to allow FileMenuItem to access private members
+    friend class FileMenuItem;
+    
 
     BeebWindowSettings m_settings;
 

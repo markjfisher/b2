@@ -1047,23 +1047,29 @@ class FileMenuItem {
 
     // details of the disk type, if the new disk option was chosen.
     const Disc *new_disc_type = nullptr;
-    std::vector<uint8_t> new_disc_data;
+    std::shared_ptr<std::vector<uint8_t>> new_disc_data;
 
     explicit FileMenuItem(SelectorDialog *new_dialog,
                           SelectorDialog *open_dialog,
                           const char *new_title,
                           const char *open_title,
                           const char *recent_title,
-                          Messages *msgs) {
+                          Messages *msgs,
+                          BeebWindow *beeb_window) {
         //bool recent_enabled=true;
 
         ImGuiIDPusher id_pusher(open_title);
 
         if (ImGui::MenuItem(open_title)) {
-            if (open_dialog->Open(&this->path)) {
-                m_used_dialog = open_dialog;
-                this->load = true;
-            }
+            // Use async callback with persistent state
+            open_dialog->OpenWithCallback([beeb_window, open_dialog](const std::string& path) {
+                if (!path.empty()) {
+                    // Store result in persistent state
+                    beeb_window->m_pending_file_menu_item.path = path;
+                    beeb_window->m_pending_file_menu_item.used_dialog = open_dialog;
+                    beeb_window->m_pending_file_menu_item.load = true;
+                }
+            });
         }
 
         if (ImGui::BeginMenu(new_title)) {
@@ -1071,14 +1077,16 @@ class FileMenuItem {
                                    BLANK_DFS_DISCS,
                                    NUM_BLANK_DFS_DISCS,
                                    false,
-                                   msgs);
+                                   msgs,
+                                   beeb_window);
             ImGui::Separator();
 
             this->DoBlankDiscsMenu(new_dialog,
                                    BLANK_ADFS_DISCS,
                                    NUM_BLANK_ADFS_DISCS,
                                    true,
-                                   msgs);
+                                   msgs,
+                                   beeb_window);
 
             ImGui::EndMenu();
         }
@@ -1093,6 +1101,20 @@ class FileMenuItem {
             m_used_dialog->AddLastPathToRecentPaths();
         }
     }
+    
+    // Check for pending async results and apply them to this instance
+    void CheckPendingResult(BeebWindow *beeb_window) {
+        if (beeb_window->m_pending_file_menu_item.load) {
+            this->path = beeb_window->m_pending_file_menu_item.path;
+            this->new_disc_type = beeb_window->m_pending_file_menu_item.new_disc_type;
+            this->new_disc_data = beeb_window->m_pending_file_menu_item.new_disc_data; // shared_ptr assignment (no copy)
+            m_used_dialog = beeb_window->m_pending_file_menu_item.used_dialog;
+            this->load = true;
+            
+            // Clear the pending state
+            beeb_window->m_pending_file_menu_item = BeebWindow::FileMenuItemState{};
+        }
+    }
 
   protected:
   private:
@@ -1102,26 +1124,43 @@ class FileMenuItem {
                           const Disc *discs,
                           size_t num_discs,
                           bool adfs,
-                          Messages *msgs) {
+                          Messages *msgs,
+                          BeebWindow *beeb_window) {
         for (size_t i = 0; i < num_discs; ++i) {
             const Disc *disc = &discs[i];
 
             if (ImGui::MenuItem(disc->name.c_str())) {
                 std::string src_path = disc->GetAssetPath();
 
-                if (!LoadFile(&this->new_disc_data, src_path, msgs)) {
+                // Load data into a temporary vector first
+                std::vector<uint8_t> temp_disc_data;
+                if (!LoadFile(&temp_disc_data, src_path, msgs)) {
                     return;
                 }
 
                 if (adfs) {
-                    RandomizeADFSDiskIdentifier(&this->new_disc_data);
+                    RandomizeADFSDiskIdentifier(&temp_disc_data);
                 }
 
-                if (dialog->Open(&this->path)) {
-                    this->new_disc_type = disc;
-                    m_used_dialog = dialog;
-                    this->load = true;
-                }
+                // Use async callback with persistent state
+                // Use shared_ptr to avoid copying large disc data
+                auto disc_data_shared = std::make_shared<std::vector<uint8_t>>(std::move(temp_disc_data));
+                dialog->OpenWithCallback([beeb_window, dialog, disc, disc_data_shared](const std::string& path) {
+                    if (!path.empty()) {
+                        // Actually save the file
+                        if (SaveFile(*disc_data_shared, path, &beeb_window->m_msg)) {
+                            // Store result in persistent state for the FileMenuItem to pick up
+                            beeb_window->m_pending_file_menu_item.path = path;
+                            beeb_window->m_pending_file_menu_item.new_disc_type = disc;
+                            beeb_window->m_pending_file_menu_item.new_disc_data = disc_data_shared; // Store shared_ptr directly
+                            beeb_window->m_pending_file_menu_item.used_dialog = dialog;
+                            beeb_window->m_pending_file_menu_item.load = true;
+                            
+                            // Update recent paths
+                            dialog->AddLastPathToRecentPaths(path);
+                        }
+                    }
+                });
             }
         }
     }
@@ -2174,10 +2213,12 @@ void BeebWindow::DoDiscImageSubMenu(int drive, bool boot) {
                              "New disc image",
                              "Disc image...",
                              "Recent disc image",
-                             &m_msg);
+                             &m_msg,
+                             this);
+    direct_item.CheckPendingResult(this); // Check for async results
     if (direct_item.load) {
         if (direct_item.new_disc_type) {
-            if (!SaveFile(direct_item.new_disc_data,
+            if (!SaveFile(*direct_item.new_disc_data,
                           direct_item.path,
                           &m_msg)) {
                 return;
@@ -2196,14 +2237,16 @@ void BeebWindow::DoDiscImageSubMenu(int drive, bool boot) {
                            "New in-memory disc image",
                            "In-memory disc image...",
                            "Recent in-memory disc image",
-                           &m_msg);
+                           &m_msg,
+                           this);
+    file_item.CheckPendingResult(this); // Check for async results
     if (file_item.load) {
         std::shared_ptr<MemoryDiscImage> new_disc_image;
         if (file_item.new_disc_type) {
             new_disc_image = MemoryDiscImage::LoadFromBuffer(file_item.path,
                                                              MemoryDiscImage::LOAD_METHOD_FILE,
-                                                             file_item.new_disc_data.data(),
-                                                             file_item.new_disc_data.size(),
+                                                             file_item.new_disc_data->data(),
+                                                             file_item.new_disc_data->size(),
                                                              *file_item.new_disc_type->geometry,
                                                              &m_msg);
         } else {

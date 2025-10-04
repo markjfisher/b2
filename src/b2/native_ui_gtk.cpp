@@ -359,44 +359,11 @@ void SelectFolderDialogGTKAsync(const std::string &default_path,
 }
 
 static std::string RunFileDialog(GtkWidget *gdialog) {
+    // Note: This function is kept for legacy compatibility but is not used in the current codebase
+    // All dialogs now use the async OpenWithCallback pattern
+    // This function would need to be completely rewritten for GTK4 if it were to be used
     (void)gdialog; // Suppress unused parameter warning
-    // Get the main application window as parent
-    GtkWindow *parent = nullptr;
-    GList *toplevels = gtk_window_list_toplevels();
-    if (toplevels) {
-        for (GList *iter = toplevels; iter; iter = iter->next) {
-            GtkWidget *window = GTK_WIDGET(iter->data);
-            if (gtk_widget_get_visible(window) && GTK_IS_WINDOW(window)) {
-                parent = GTK_WINDOW(window);
-                break;
-            }
-        }
-        g_list_free(toplevels);
-    }
-    
-    // Create GTK4 native file dialog
-    GtkFileDialog *file_dialog = gtk_file_dialog_new();
-    
-    // Set dialog properties
-    gtk_file_dialog_set_title(file_dialog, "Open File");
-    
-    // Clear the callback for open operations
-    g_trace_save_callback = nullptr;
-    
-    // Start the async file dialog (non-blocking)
-    gtk_file_dialog_open(file_dialog, parent, nullptr, async_file_dialog_response_callback, nullptr);
-    
-    // Process events to ensure dialog appears
-    while (g_main_context_pending(g_main_context_default())) {
-        g_main_context_iteration(g_main_context_default(), FALSE);
-    }
-    
-    g_object_unref(file_dialog);
-    
-    // Return empty result - the dialog will handle the result asynchronously
-    // This is a compromise: we avoid ANR but lose the synchronous return value
-    // The real solution would be to restructure the calling code to handle async results
-    return "";
+    return ""; // Return empty result - this function is deprecated
 }
 
 //////////////////////////////////////////////////////////////////////////
