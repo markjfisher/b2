@@ -73,6 +73,9 @@ class TraceUI : public SettingsUI {
     // For async save callback
     std::shared_ptr<Trace> m_pending_save_trace;
     
+    // For async auto-save path dialog
+    std::unique_ptr<SaveFileDialog> m_pending_auto_save_dialog;
+    
     
 
     char m_stop_num_cycles_str[100] = {};
@@ -427,11 +430,23 @@ void TraceUI::DoImGui() {
         ImGui::Checkbox("Auto-save on stop", &g_default_settings.auto_save);
         if (g_default_settings.auto_save) {
             if (ImGui::Button("...")) {
-                SaveFileDialog fd(RECENT_PATHS_TRACES);
-
-                fd.AddFilter("Text files", {".txt"});
-                fd.AddAllFilesFilter();
-                fd.Open(&g_default_settings.auto_save_path);
+                // Create and configure the dialog
+                m_pending_auto_save_dialog = std::make_unique<SaveFileDialog>(RECENT_PATHS_TRACES);
+                m_pending_auto_save_dialog->AddFilter("Text files", {".txt"});
+                m_pending_auto_save_dialog->AddAllFilesFilter();
+                
+                m_pending_auto_save_dialog->OpenWithCallback([this](const std::string& path) {
+                    if (!path.empty() && m_pending_auto_save_dialog) {
+                        // Update the global auto-save path
+                        g_default_settings.auto_save_path = path;
+                        
+                        // Update recent paths
+                        m_pending_auto_save_dialog->AddLastPathToRecentPaths(path);
+                    }
+                    
+                    // Clean up
+                    m_pending_auto_save_dialog.reset();
+                });
             }
             ImGui::SameLine();
             ImGuiInputText(&g_default_settings.auto_save_path, "Path", g_default_settings.auto_save_path);
