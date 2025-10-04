@@ -107,43 +107,10 @@ void MessageBox(const std::string &title, const std::string &text) {
     g_object_unref(alert);
 }
 
-//////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////
-
-static GtkWidget *CreateFileDialog(const char *title,
-                                   GtkFileChooserAction action) {
-    // Get the main application window as parent
-    GtkWindow *parent = nullptr;
-    GList *toplevels = gtk_window_list_toplevels();
-    if (toplevels) {
-        for (GList *iter = toplevels; iter; iter = iter->next) {
-            GtkWidget *window = GTK_WIDGET(iter->data);
-            if (gtk_widget_get_visible(window) && GTK_IS_WINDOW(window)) {
-                parent = GTK_WINDOW(window);
-                break;
-            }
-        }
-        g_list_free(toplevels);
-    }
-    
-    const char *accept_button_text = (action == GTK_FILE_CHOOSER_ACTION_SAVE) ? "_Save" : "_Open";
-    
-    // Note: gtk_file_chooser_dialog_new is deprecated in GTK4, but we keep it for legacy compatibility
-    // The new async dialogs use GtkFileDialog instead
-    GtkWidget *gdialog = gtk_file_chooser_dialog_new(title,
-                                                     parent,
-                                                     action,
-                                                     "_Cancel", GTK_RESPONSE_CANCEL,
-                                                     accept_button_text, GTK_RESPONSE_ACCEPT,
-                                                     nullptr);
-    return gdialog;
-}
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
-// Forward declaration for TraceUI callback
-class TraceUI;
 static void (*g_trace_save_callback)(const std::string& path) = nullptr;
 
 // For std::function callbacks
@@ -358,83 +325,17 @@ void SelectFolderDialogGTKAsync(const std::string &default_path,
     // The dialog will be cleaned up in the callback
 }
 
-static std::string RunFileDialog(GtkWidget *gdialog) {
-    // Note: This function is kept for legacy compatibility but is not used in the current codebase
-    // All dialogs now use the async OpenWithCallback pattern
-    // This function would need to be completely rewritten for GTK4 if it were to be used
-    (void)gdialog; // Suppress unused parameter warning
-    return ""; // Return empty result - this function is deprecated
-}
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
-static void SetDefaultPath(GtkWidget *gdialog,
-                           const std::string &default_path) {
-    if (!default_path.empty()) {
-        GFile *file = g_file_new_for_path(default_path.c_str());
-        // Note: gtk_file_chooser_set_file is deprecated in GTK4, but we keep it for legacy compatibility
-        gtk_file_chooser_set_file(GTK_FILE_CHOOSER(gdialog), file, nullptr);
-        g_object_unref(file);
-    }
-}
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
-static void AddFilters(GtkWidget *gdialog,
-                       const std::vector<OpenFileDialog::Filter> &filters) {
-    for (const OpenFileDialog::Filter &filter : filters) {
-        GtkFileFilter *gfilter = gtk_file_filter_new();
-
-        std::string name = filter.title + " (";
-        for (size_t i = 0; i < filter.extensions.size(); ++i) {
-            if (i > 0) {
-                name += "; ";
-            }
-            name += "*" + filter.extensions[i];
-        }
-        name += ")";
-
-        gtk_file_filter_set_name(gfilter, name.c_str());
-
-        for (const std::string &extension : filter.extensions) {
-            gtk_file_filter_add_pattern(gfilter, ("*" + extension).c_str());
-        }
-
-        // Note: gtk_file_chooser_add_filter is deprecated in GTK4, but we keep it for legacy compatibility
-        gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(gdialog), gfilter);
-    }
-}
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
-
-std::string OpenFileDialogGTK(const std::vector<OpenFileDialog::Filter> &filters,
-                              const std::string &default_path) {
-    GtkWidget *gdialog = CreateFileDialog("Open File",
-                                          GTK_FILE_CHOOSER_ACTION_OPEN);
-
-    AddFilters(gdialog, filters);
-    SetDefaultPath(gdialog, default_path);
-
-    return RunFileDialog(gdialog);
-}
-
-//////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////
-
-std::string SaveFileDialogGTK(const std::vector<OpenFileDialog::Filter> &filters,
-                              const std::string &default_path) {
-    GtkWidget *gdialog = CreateFileDialog("Save File",
-                                          GTK_FILE_CHOOSER_ACTION_SAVE);
-
-    AddFilters(gdialog, filters);
-    SetDefaultPath(gdialog, default_path);
-    // Note: gtk_file_chooser_set_do_overwrite_confirmation is not available in GTK4
-
-    return RunFileDialog(gdialog);
-}
 
 // GTK-specific async implementation for SaveFileDialog
 void SaveFileDialogGTKAsync(const std::vector<OpenFileDialog::Filter> &filters,
@@ -494,14 +395,6 @@ void SaveFileDialogGTKAsync(const std::vector<OpenFileDialog::Filter> &filters,
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
-std::string SelectFolderDialogGTK(const std::string &default_path) {
-    GtkWidget *gdialog = CreateFileDialog("Select Folder",
-                                          GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER);
-
-    SetDefaultPath(gdialog, default_path);
-
-    return RunFileDialog(gdialog);
-}
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////

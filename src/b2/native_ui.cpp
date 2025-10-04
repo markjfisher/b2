@@ -205,26 +205,6 @@ void SelectorDialog::AddLastPathToRecentPaths(const std::string& path) {
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
-bool SelectorDialog::Open(std::string *path) {
-    if (m_last_path.empty()) {
-        if (RecentPaths *recent = GetRecentPathsByTag(m_recent_paths_tag)) {
-            if (recent->GetNumPaths() > 0) {
-                m_last_path = recent->GetPathByIndex(0);
-            }
-        }
-    }
-
-    std::string result = this->HandleOpen();
-    if (result.empty()) {
-        m_last_path.clear();
-        return false;
-    } else {
-        m_last_path = result;
-        *path = m_last_path;
-        return true;
-    }
-}
-
 void SelectorDialog::OpenWithCallback(std::function<void(const std::string&)> callback) {
     // Set up last path if needed
     if (m_last_path.empty()) {
@@ -314,7 +294,9 @@ std::string OpenFileDialog::HandleOpen() {
 
 #else
 
-    return OpenFileDialogGTK(m_filters, m_last_path);
+    // Linux uses async dialogs, so this synchronous method should never be called
+    // Return empty string as fallback
+    return "";
 
 #endif
 }
@@ -358,7 +340,9 @@ std::string SaveFileDialog::HandleOpen() {
 
 #else
 
-    return SaveFileDialogGTK(m_filters, m_last_path);
+    // Linux uses async dialogs, so this synchronous method should never be called
+    // Return empty string as fallback
+    return "";
 
 #endif
 }
@@ -397,8 +381,9 @@ std::string FolderDialog::HandleOpen() {
 
 #else
 
-    std::string r = SelectFolderDialogGTK(m_last_path);
-    return r;
+    // Linux uses async dialogs, so this synchronous method should never be called
+    // Return empty string as fallback
+    return "";
 
 #endif
 }

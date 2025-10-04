@@ -20,11 +20,6 @@ void MessageBox(const std::string &title, const std::string &text);
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
-std::string OpenFileDialogGTK(const std::vector<OpenFileDialog::Filter> &filters,
-                              const std::string &default_path);
-
-std::string SaveFileDialogGTK(const std::vector<OpenFileDialog::Filter> &filters,
-                              const std::string &default_path);
 
 // std::function version for the interface
 void SaveFileDialogGTKAsync(const std::vector<OpenFileDialog::Filter> &filters,
@@ -42,7 +37,6 @@ void SelectFolderDialogGTKAsync(const std::string &default_path,
 // Function to process GTK events (to be called from main SDL loop)
 void ProcessGTKEvents();
 
-std::string SelectFolderDialogGTK(const std::string &default_path);
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
