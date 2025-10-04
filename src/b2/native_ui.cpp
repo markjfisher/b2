@@ -235,8 +235,18 @@ void SelectorDialog::OpenWithCallback(std::function<void(const std::string&)> ca
         }
     }
     
-    // Call the platform-specific callback implementation
-    this->HandleOpenWithCallback(callback);
+    // Call the platform-specific callback implementation with a wrapper that handles m_last_path
+    this->HandleOpenWithCallback([this, callback](const std::string& result) {
+        // Update m_last_path based on result (same logic as synchronous Open method)
+        if (result.empty()) {
+            m_last_path.clear();        // Clear if cancelled/empty
+        } else {
+            m_last_path = result;       // Update with successful result
+        }
+        
+        // Call the original callback
+        callback(result);
+    });
 }
 
 void SelectorDialog::HandleOpenWithCallback(std::function<void(const std::string&)> callback) {
