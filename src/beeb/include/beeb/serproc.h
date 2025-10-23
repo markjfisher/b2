@@ -42,6 +42,10 @@ class SerialDataSource : public std::enable_shared_from_this<SerialDataSource> {
     SerialDataSource(SerialDataSource &&) = delete;
     SerialDataSource &operator=(SerialDataSource &&) = delete;
 
+    // Check if data is available
+    virtual bool HasData() = 0;
+
+    // Get next byte (only call if HasData() returns true)
     virtual uint8_t GetNextByte() = 0;
 
   protected:
@@ -99,6 +103,9 @@ class SERPROC {
 
     void Link(MC6850 *acia);
 
+    void SetSource(std::shared_ptr<SerialDataSource> source);
+    void SetSink(std::shared_ptr<SerialDataSink> sink);
+
   protected:
   private:
     ControlRegister m_control = {};
@@ -107,6 +114,20 @@ class SERPROC {
     uint8_t m_rx_clock_mask = 0;
 
     uint8_t m_tx_byte = 0;
+    uint8_t m_tx_bit_index = 0;  // Track which bit we're receiving (0-7)
+
+    // RX state for receiving from source
+    enum RXState {
+        RXState_Idle,
+        RXState_Start,
+        RXState_Data,
+        RXState_Stop
+    };
+    RXState m_rx_state = RXState_Idle;
+    uint8_t m_rx_byte = 0;
+    uint8_t m_rx_bit_index = 0;
+    bool m_rx_has_byte = false;
+    uint8_t m_rx_idle_count = 0;  // Counter for inter-byte gap
 
     std::shared_ptr<SerialDataSource> m_source;
     std::shared_ptr<SerialDataSink> m_sink;

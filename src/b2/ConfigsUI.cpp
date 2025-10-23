@@ -10,6 +10,8 @@
 #include <beeb/DiscInterface.h>
 #include "BeebWindow.h"
 #include "BeebConfig.h"
+#include "FujiNetConfig.h"
+#include "FujiNetConfigUI.h"
 #include <beeb/type.h>
 #include <beeb/BBCMicro.h>
 #include <shared/strings.h>
@@ -37,11 +39,13 @@ static const char CONFIG_CONTEXT_POPUP[] = "config_context_popup";
 static RecentPaths g_hard_disks_recent_paths("hard_disks");
 static RecentPaths g_roms_recent_paths("roms");
 static RecentPaths g_mmfs_images_recent_paths("mmfs_images");
+static RecentPaths g_fujinet_devices_recent_paths("fujinet_devices");
 
 const Guid OPEN_ROM_IMAGE_SELECTOR_GUID{0xC4, 0x57, 0x6C, 0xD4, 0xE6, 0x33, 0x4C, 0x63, 0xAD, 0x43, 0xC0, 0x88, 0xF4, 0xC8, 0xFB, 0x2C};
 const Guid OPEN_HARD_DISK_IMAGE_SELECTOR_GUID{0xF1, 0x5F, 0xA1, 0xE2, 0x3C, 0xF2, 0x48, 0x40, 0x95, 0x34, 0x90, 0x81, 0x32, 0x09, 0x4E, 0x10};
 const Guid OPEN_MMFS_IMAGE_SELECTOR_GUID{0xA3, 0xB2, 0x91, 0xC8, 0xF4, 0x29, 0x49, 0x7D, 0x8E, 0x11, 0x6C, 0x45, 0xAB, 0x38, 0x2F, 0xE9};
 const Guid NEW_HARD_DISK_IMAGE_SELECTOR_GUID{0xe7, 0x34, 0xcc, 0xea, 0x15, 0x0f, 0x44, 0x84, 0xa5, 0x42, 0x9d, 0x12, 0x83, 0x1f, 0xf1, 0xc8};
+const Guid OPEN_FUJINET_ROM_SELECTOR_GUID{0xD5, 0xA7, 0x83, 0xF2, 0x1B, 0x4E, 0x49, 0x8C, 0x9F, 0x26, 0x5D, 0x31, 0xBE, 0x47, 0xC9, 0x12};
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
@@ -61,6 +65,7 @@ class ConfigsUI : public SettingsUI {
     OpenFileDialog m_rom_ofd;
     OpenFileDialog m_hard_disk_ofd;
     OpenFileDialog m_mmfs_image_ofd;
+    OpenFileDialog m_fujinet_device_ofd;
     SaveFileDialog m_new_hard_disk_sfd;
     size_t m_config_index = INVALID_CONFIG_INDEX;
 
@@ -90,6 +95,7 @@ ConfigsUI::ConfigsUI(BeebWindow *beeb_window, size_t initial_config_index)
     , m_rom_ofd(OPEN_ROM_IMAGE_SELECTOR_GUID, beeb_window->GetAppHandler())
     , m_hard_disk_ofd(OPEN_HARD_DISK_IMAGE_SELECTOR_GUID, beeb_window->GetAppHandler())
     , m_mmfs_image_ofd(OPEN_MMFS_IMAGE_SELECTOR_GUID, beeb_window->GetAppHandler())
+    , m_fujinet_device_ofd(OPEN_FUJINET_ROM_SELECTOR_GUID, beeb_window->GetAppHandler())
     , m_new_hard_disk_sfd(NEW_HARD_DISK_IMAGE_SELECTOR_GUID, beeb_window->GetAppHandler())
     , m_config_index(initial_config_index) {
     this->SetDefaultSize(ImVec2(650, 450));
@@ -101,6 +107,9 @@ ConfigsUI::ConfigsUI(BeebWindow *beeb_window, size_t initial_config_index)
 
     m_new_hard_disk_sfd.AddFilter("BBC hard disk file", {".dat"});
     m_new_hard_disk_sfd.AddAllFilesFilter();
+
+    m_fujinet_device_ofd.AddAllFilesFilter();
+
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -588,6 +597,27 @@ void ConfigsUI::DoEditConfigGui() {
             ImGuiStyleColourPusher pusher;
             pusher.PushDefault(ImGuiCol_Text);
             ImGui::TextWrapped("MMB files (MMFS v1) or FAT32 disk images (MMFS v2)");
+        }
+    }
+
+    // FujiNet - Network adapter (via Serial or User Port)
+    // Requires either serial hardware or user port depending on interface type
+    if (HasSerial(config->type_id) || HasUserPort(config->type_id)) {
+        ImGui::Separator();
+
+        ImGuiHeader("FujiNet##header");
+
+        if (ImGui::Checkbox("FujiNet", &config->fujinet_enabled)) {
+            edited = true;
+        }
+
+        if (config->fujinet_enabled) {
+            if (DoFujiNetConfigUI(&config->fujinet_config,
+                                  &m_fujinet_device_ofd,
+                                  &g_fujinet_devices_recent_paths,
+                                  m_beeb_window->GetSDLWindow())) {
+                edited = true;
+            }
         }
     }
 

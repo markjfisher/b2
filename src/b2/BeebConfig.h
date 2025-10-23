@@ -18,6 +18,9 @@
 #include "BeebConfig.inl"
 #include <shared/enum_end.h>
 
+#include "FujiNetConfig.h"
+
+
 class BBCMicro;
 class Messages;
 class DiscInterface;
@@ -105,6 +108,9 @@ class BeebConfig {
     // MMFS - memory-mapped filing system (additional hardware)
     bool mmfs_enabled = false;
     MMFSConfig mmfs_config;
+    // FujiNet - network adapter (via serial or user port)
+    bool fujinet_enabled = false;
+    B2FujiNetConfig fujinet_config;
 
     void ResetNVRAM();
 
@@ -115,7 +121,7 @@ class BeebConfig {
 // with manually, for one reason or another (usually name mismatches or
 // inconvenient schema).
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(BeebConfig::MMFSConfig, image_path, debug);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(BeebConfig, name, video_nula, ext_mem, beeblink, adji, adji_dip_switches, nvram_type, mouse, parasite_type, os_rom_type, rom_board, serial, scsi, hard_disk_dat_paths, mmfs_enabled, mmfs_config);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(BeebConfig, name, video_nula, ext_mem, beeblink, adji, adji_dip_switches, nvram_type, mouse, parasite_type, os_rom_type, rom_board, serial, scsi, hard_disk_dat_paths, mmfs_enabled, mmfs_config, fujinet_enabled, fujinet_config);
 
 void InitDefaultBeebConfigs();
 

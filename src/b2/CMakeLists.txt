@@ -3,6 +3,9 @@
 
 add_library(b2_lib STATIC
   BeebConfig.cpp BeebConfig.h BeebConfig.inl
+  FujiNetConfig.cpp FujiNetConfig.h FujiNetConfig.inl
+  FujiNetConfigUI.cpp FujiNetConfigUI.h
+  PTYSerial.cpp PTYSerial.h
   BeebKeymap.cpp BeebKeymap.h
   BeebLinkHTTPHandler.cpp BeebLinkHTTPHandler.h
   BeebLinkUI.cpp BeebLinkUI.h

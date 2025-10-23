@@ -548,6 +548,9 @@ class BBCMicro : private WD1770Handler {
     void StopTrace(std::shared_ptr<Trace> *old_trace_ptr);
 
     int GetTraceStats(struct TraceStats *stats);
+    
+    // Get the current trace pointer (for setting trace on external components)
+    Trace *GetTrace() const;
 #endif
 
     // Add host CPU instruction/host CPU write callback.
@@ -701,6 +704,10 @@ class BBCMicro : private WD1770Handler {
 
     // Overly simplistic mechanism?
     void SetPrinterBuffer(PrinterBuffer *printer_buffer);
+
+    // Serial port management
+    void SetSerialSource(std::shared_ptr<SerialDataSource> source);
+    void SetSerialSink(std::shared_ptr<SerialDataSink> sink);
 
     bool HasADC() const;
 

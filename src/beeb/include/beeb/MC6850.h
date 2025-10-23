@@ -136,6 +136,10 @@ class MC6850 {
     bool m_trace_extra_verbose = false;
 #endif
 
+    // Debug counters (optional)
+    uint64_t m_debug_rx_bytes = 0;
+    uint64_t m_debug_rx_overruns = 0;
+
     void Reset();
     StatusRegister GetStatusRegister() const;
     void UpdateIRQs();

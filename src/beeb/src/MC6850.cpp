@@ -58,6 +58,13 @@ uint8_t MC6850::ReadDataRegister(void *mc6850_, M6502Word addr) {
     (void)addr;
     auto mc6850 = (MC6850 *)mc6850_;
 
+    uint8_t value = mc6850->m_rdr;
+    TRACEF(mc6850->m_trace,
+           "MC6850 - ReadDataRegister: $%02X ('%c') status=$%02X",
+           value,
+           (value >= 32 && value < 127) ? value : '.',
+           mc6850->m_status.value);
+
     mc6850->m_status.bits.rdrf = 0;
     mc6850->m_status.bits.ovrn = 0;
     mc6850->m_irq.bits.rx = 0;
@@ -127,6 +134,7 @@ uint8_t MC6850::ReadStatusRegister(void *mc6850_, M6502Word addr) {
     auto mc6850 = (MC6850 *)mc6850_;
 
     StatusRegister status = mc6850->GetStatusRegister();
+
     return status.value;
 }
 
@@ -186,7 +194,9 @@ void MC6850::UpdateReceive(uint8_t bit) {
         m_old_not_dcd = m_not_dcd;
     }
 
-    if ((m_rx_clock++ & m_clock_mask) == 0) {
+    // REMOVED CLOCK DIVISION - SERPROC already handles timing
+    // Process every bit that SERPROC sends
+    {
         switch (m_rx_state) {
         default:
             ASSERT(false);
@@ -255,24 +265,38 @@ void MC6850::UpdateReceive(uint8_t bit) {
                     m_rx_framing_error = true;
                 }
 
-                TRACEF_IF(m_trace_extra_verbose, m_trace, "MC6850 - Rx StopBit: got %d: rx_framing_error=%d, rx_ovrn=%d", bit, m_rx_framing_error, m_rx_ovrn);
+                TRACEF_IF(m_trace_extra_verbose, m_trace,
+                          "MC6850 - Rx StopBit: got %d: rx_framing_error=%d, rx_ovrn=%d",
+                          bit, m_rx_framing_error, m_rx_ovrn);
 
                 if (UpdateStopBitsTransferMask(&m_rx_mask, &m_rx_state, m_control, MC6850ReceiveState_StartBit)) {
                     if (m_status.bits.rdrf) {
                         m_rx_ovrn = 1;
-                        //m_status.bits.ovrn = 1;
+                        m_debug_rx_overruns++;
+                        TRACEF(m_trace,
+                               "MC6850 - Receive complete but RDRF already set - OVERRUN! "
+                               "Lost byte 0x%02X, overruns=%llu",
+                               m_rdr, (unsigned long long)m_debug_rx_overruns);
                     } else {
                         m_status.bits.rdrf = 1;
                         m_rdr = m_rx_data;
                         m_status.bits.fe = m_rx_framing_error;
                         m_status.bits.pe = m_rx_parity_error;
+
+                        m_debug_rx_bytes++;
+                        TRACEF(m_trace,
+                               "MC6850 - RDR ready: #%llu $%02X ('%c'), RDRF=1, IRQ_EN=%d",
+                               (unsigned long long)m_debug_rx_bytes,
+                               m_rdr,
+                               (m_rdr >= 32 && m_rdr < 127) ? m_rdr : '.',
+                               m_control.bits.rx_irq_en);
                     }
 
                     m_irq.bits.rx = 1;
                     this->UpdateIRQs();
                 }
+                break;
             }
-            break;
         }
     }
 }

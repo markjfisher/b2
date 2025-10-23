@@ -1,5 +1,6 @@
 #include <shared/system.h>
 #include "BeebThread.h"
+#include "PTYSerial.h"
 #include <shared/log.h>
 #include <shared/debug.h>
 #include "MessageQueue.h"
@@ -169,6 +170,8 @@ struct BeebThread::ThreadState {
     Message::CompletionFun paste_completion_fun;
 
     std::unique_ptr<BeebLinkHTTPHandler> beeblink_handler;
+
+    std::unique_ptr<PTYSerialDevice> fujinet_device;
 
     int mouse_total_dx = 0;
     int mouse_total_dy = 0;
@@ -605,6 +608,36 @@ void BeebThread::HardResetMessage::HardReset(
         ts->beeblink_handler.reset();
     }
 
+    // FujiNet initialization
+    if (ts->current_config.config.fujinet_enabled) {
+        if (!ts->fujinet_device) {
+            ts->fujinet_device = std::make_unique<PTYSerialDevice>();
+        }
+
+        if (ts->current_config.config.fujinet_config.auto_connect &&
+            !ts->current_config.config.fujinet_config.device_path.empty()) {
+
+            bool is_pty = (ts->current_config.config.fujinet_config.device_mode == FujiNetDeviceMode_PTY);
+            bool debug = ts->current_config.config.fujinet_config.debug;
+
+            if (!ts->fujinet_device->IsOpen()) {
+                if (ts->fujinet_device->Open(ts->current_config.config.fujinet_config.device_path, is_pty, debug)) {
+                    ts->msgs.i.f("FujiNet: Connected to %s\n", 
+                                ts->current_config.config.fujinet_config.device_path.c_str());
+                } else {
+                    ts->msgs.e.f("FujiNet: Failed to open %s: %s\n",
+                                ts->current_config.config.fujinet_config.device_path.c_str(),
+                                ts->fujinet_device->GetLastError().c_str());
+                }
+            }
+        }
+    } else {
+        if (ts->fujinet_device) {
+            ts->fujinet_device->Close();
+            ts->fujinet_device.reset();
+        }
+    }
+
     if (!!ts->beeblink_handler) {
         ts->beeblink_handler->Reset();
     }
@@ -636,7 +669,7 @@ void BeebThread::HardResetMessage::HardReset(
         type_flags |= BBCMicroTypeFlag_ROMBoard;
     }
 
-    if (HasSerial(ts->current_config.config.type_id) || ts->current_config.config.serial) {
+    if (HasSerial(ts->current_config.config.type_id) || ts->current_config.config.serial || ts->current_config.config.fujinet_enabled) {
         init_flags |= BBCMicroInitFlag_Serial;
     }
 
@@ -667,6 +700,16 @@ void BeebThread::HardResetMessage::HardReset(
                                            ts->current_config.hard_disk_images,
                                            ts->current_config.config.mmfs_config.image_path,
                                            num_cycles);
+
+    if (ts->fujinet_device && ts->fujinet_device->IsOpen()) {
+        auto source = ts->fujinet_device->GetSource();
+        auto sink = ts->fujinet_device->GetSink();
+
+        beeb->SetSerialSource(source);
+        beeb->SetSerialSink(sink);
+
+        ts->msgs.i.f("FujiNet: Connected to SERPROC\n");
+    }
 
     beeb->SetOSROM(ts->current_config.os);
 
@@ -2972,6 +3015,11 @@ void BeebThread::ThreadBeebStartTrace(ThreadState *ts) {
     ts->trace_start_cycles = *ts->num_executed_cycles;
     ts->trace_state = BeebThreadTraceState_Tracing;
     ts->beeb->StartTrace(ts->trace_conditions.trace_flags, ts->trace_max_num_bytes);
+
+    // Set trace on PTYSerialDevice if it's connected
+    if (ts->fujinet_device && ts->fujinet_device->IsOpen()) {
+        ts->fujinet_device->SetTrace(ts->beeb->GetTrace());
+    }
 }
 #endif
 
