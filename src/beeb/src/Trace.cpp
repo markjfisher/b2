@@ -1,4 +1,5 @@
 #include <shared/system.h>
+#include <shared/mutex.h>
 #include <beeb/Trace.h>
 
 #if BBCMICRO_TRACE
@@ -147,6 +148,7 @@ Trace::Trace(size_t max_num_bytes,
     , m_parasite_type(parasite_type)
     , m_parasite_m6502_config(parasite_m6502_config)
     , m_parasite_boot_mode(initial_parasite_boot_mode) {
+    MUTEX_SET_NAME(m_mutex, "Trace");
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -178,17 +180,23 @@ void *Trace::AllocEvent(const TraceEventType &type, TraceEventSource source) {
     ASSERT(type.size > 0);
     ASSERT(source >= 0 && source <= MAX_SOURCE);
 
+    LockGuard<Mutex> lock(m_mutex);
+
+    CycleCount prev_time = m_last_time;
     CycleCount time = m_last_time;
     if (m_time_ptr) {
         time = *m_time_ptr;
     }
 
-    auto h = (EventHeader *)this->Alloc(time, sizeof(EventHeader) + type.size);
+    auto h = (EventHeader *)this->AllocUnlocked(time, sizeof(EventHeader) + type.size);
+    if (!h) {
+        return nullptr;
+    }
 
     h->type = type.type_id;
-    ASSERT(time.n >= m_last_time.n);
+    ASSERT(time.n >= prev_time.n);
     h->source = source;
-    h->time_delta = (uint8_t)(time.n - m_last_time.n);
+    h->time_delta = (uint8_t)(time.n - prev_time.n);
     h->canceled = 0;
 
     m_tail->last_time = time;
@@ -207,6 +215,8 @@ void *Trace::AllocEvent(const TraceEventType &type, TraceEventSource source) {
 //////////////////////////////////////////////////////////////////////////
 
 void Trace::CancelEvent(const TraceEventType &type, void *data) {
+    LockGuard<Mutex> lock(m_mutex);
+
     if (type.size == 0) {
         EventWithSizeHeader *h = (EventWithSizeHeader *)data - 1;
 
@@ -526,15 +536,21 @@ void *Trace::AllocEventWithSize(const TraceEventType &type, TraceEventSource sou
         return nullptr;
     }
 
+    LockGuard<Mutex> lock(m_mutex);
+
+    CycleCount prev_time = m_last_time;
     CycleCount time = m_last_time;
     if (m_time_ptr) {
         time = *m_time_ptr;
     }
 
-    auto h = (EventWithSizeHeader *)this->Alloc(time, sizeof(EventWithSizeHeader) + size);
+    auto h = (EventWithSizeHeader *)this->AllocUnlocked(time, sizeof(EventWithSizeHeader) + size);
+    if (!h) {
+        return nullptr;
+    }
 
     h->h.type = type.type_id;
-    h->h.time_delta = (uint8_t)(time.n - m_last_time.n);
+    h->h.time_delta = (uint8_t)(time.n - prev_time.n);
     h->h.source = source;
     h->h.canceled = 0;
     h->size = (uint16_t)size;
@@ -572,6 +588,63 @@ char *Trace::AllocString2(TraceEventSource source, const char *str, size_t len) 
 //////////////////////////////////////////////////////////////////////////
 
 void *Trace::Alloc(CycleCount time, size_t n) {
+    LockGuard<Mutex> lock(m_mutex);
+
+    return this->AllocUnlocked(time, n);
+}
+
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+
+void *Trace::AllocUnlocked(CycleCount &time, size_t n) {
+    this->Check();
+
+    for (;;) {
+        if (time.n >= m_last_time.n && time.n - m_last_time.n <= MAX_TIME_DELTA) {
+            break;
+        }
+
+        CycleCount discontinuity_time = time;
+        if (m_time_ptr) {
+            discontinuity_time = *m_time_ptr;
+        }
+
+        this->InsertDiscontinuityEvent(discontinuity_time);
+        time = discontinuity_time;
+    }
+
+    return this->AllocBytes(time, n);
+}
+
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+
+void Trace::InsertDiscontinuityEvent(CycleCount new_time) {
+    m_last_time = new_time;
+
+    auto h = (EventHeader *)this->AllocBytes(new_time, sizeof(EventHeader) + sizeof(DiscontinuityTraceEvent));
+    if (!h) {
+        return;
+    }
+
+    h->type = DISCONTINUITY_EVENT.type_id;
+    h->time_delta = 0;
+    h->source = TraceEventSource_None;
+    h->canceled = 0;
+
+    auto de = (DiscontinuityTraceEvent *)(h + 1);
+    de->new_time = new_time;
+
+    m_tail->last_time = new_time;
+    m_last_time = new_time;
+
+    this->Check();
+}
+
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+
+void *Trace::AllocBytes(CycleCount time, size_t n) {
     //ASSERT(ENABLED(t));
     this->Check();
 
@@ -639,15 +712,6 @@ void *Trace::Alloc(CycleCount time, size_t n) {
         m_stats.max_time = time;
     }
 
-    if (time.n < m_last_time.n || time.n - m_last_time.n > MAX_TIME_DELTA) {
-        // Insert a discontinuity event. Ensure it has a time_delta of
-        // 0.
-        m_last_time = time;
-
-        auto de = (DiscontinuityTraceEvent *)this->AllocEvent(DISCONTINUITY_EVENT);
-
-        de->new_time = time;
-    }
     ASSERT(time.n >= m_last_time.n && time.n - m_last_time.n <= MAX_TIME_DELTA);
 
     uint8_t *p = (uint8_t *)(m_tail + 1) + m_tail->size;

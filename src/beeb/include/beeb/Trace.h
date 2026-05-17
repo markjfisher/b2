@@ -36,6 +36,7 @@
 //////////////////////////////////////////////////////////////////////////
 
 #include <shared/log.h>
+#include <shared/mutex.h>
 #include <string>
 #include "type.h"
 
@@ -259,7 +260,12 @@ class Trace : public std::enable_shared_from_this<Trace> {
     char *AllocString2(TraceEventSource source, const char *str, size_t len);
 
     void *Alloc(CycleCount time, size_t n);
+    void *AllocUnlocked(CycleCount &time, size_t n);
+    void *AllocBytes(CycleCount time, size_t n);
+    void InsertDiscontinuityEvent(CycleCount new_time);
     void Check();
+
+    Mutex m_mutex;
     static void PrintToTraceLog(const char *str, size_t str_len, void *data);
 };
 
